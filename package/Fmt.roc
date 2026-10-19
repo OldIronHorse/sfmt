@@ -23,8 +23,8 @@ Fmt := {}.{
 }
 
 expect Fmt.fixed(2)(12.3) == "12.30"
-expect  Fmt.fixed(2)(12.3456) == "12.35"
-expect  Fmt.fixed(2)(-12.3456) == "-12.35"
+expect Fmt.fixed(2)(12.3456) == "12.35"
+expect Fmt.fixed(2)(-12.3456) == "-12.35"
 expect Fmt.pad_left(10, Fmt.fixed(2))(12.3456) == "     12.35"
 expect Fmt.pad_left(3, Fmt.fixed(2))(12.3456) == "12.35"
 

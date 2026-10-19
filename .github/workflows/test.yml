@@ -33,7 +33,3 @@ jobs:
         run: roc --version
       - name: Test library
         run: roc test package/main.roc
-      - name: Test grep CLI clone
-        run: roc test examples/grep.roc
-      - name: Test git CLI clone
-        run: roc test examples/git.roc

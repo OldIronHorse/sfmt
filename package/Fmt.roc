@@ -21,6 +21,15 @@ Fmt := {}.{
                 s => s
             }
 
+    pad_right : U64, (a -> Str) -> (a -> Str)
+    pad_right = |width, fn|
+        |v|
+            match fn(v) {
+                s if Grapheme.slices(s).len() < width =>
+                    "${s}${" ".repeat(width - Grapheme.slices(s).len())}"
+                s => s
+            }
+
     pad_left_with : U64, Str, (a -> Str) -> (a -> Str)
     pad_left_with = |width, pad, fn|
         |v| {
@@ -32,6 +41,22 @@ Fmt := {}.{
                     .join()
                     .concat(gs)
                     .take_last(width)
+                    |> Str.join_with("")
+            }
+            else
+                s
+        }
+
+    pad_right_with : U64, Str, (a -> Str) -> (a -> Str)
+    pad_right_with = |width, pad, fn|
+        |v| {
+            s = fn(v)
+            gs = Grapheme.slices(s)
+            if gs.len() < width {
+                gp = Grapheme.slices(pad)
+                gs.concat(gp.repeat((width - gs.len()).div_ceil_by(gp.len()))
+                            .join())
+                    .take_first(width)
                     |> Str.join_with("")
             }
             else
@@ -53,4 +78,6 @@ expect Fmt.int(123) == "123"
 expect Fmt.pad_left(10, Fmt.int)(1234) == "      1234"
 expect Fmt.pad_left_with(10, "#", Fmt.int)(1234) == "######1234"
 expect Fmt.pad_left_with(11, "|#", Fmt.int)(1234) == "#|#|#|#1234"
-
+expect Fmt.pad_right(10, Fmt.int)(1234) == "1234      "
+expect Fmt.pad_right_with(10, "#", Fmt.int)(1234) == "1234######"
+expect Fmt.pad_right_with(11, "|#", Fmt.int)(1234) == "1234|#|#|#|"

@@ -8,6 +8,7 @@ Fmt := {}.{
             match (n * p).round().div_by(p).to_str().split_on(".") {
                 [i, f] if Grapheme.slices(f).len() < dp =>
                     "${i}.${f}${"0".repeat(dp - Grapheme.slices(f).len())}"
+                [i, ..] if dp == 0 => i
                 s => Str.join_with(s, ".")
             }
     }
@@ -63,15 +64,20 @@ Fmt := {}.{
                 s
         }
 
-    int : a -> Str where [ a.to_str : a -> Str, a.is_even : a -> Bool ]
+    int : a -> Str where [ a.to_str : a -> Str, a.shl_wrap : a, U8 -> a, a.bitwise_and : a, a -> a ] # a should be an integer type
     int = |n| n.to_str()
 
-
+    map: (b -> a), (a -> Str) -> (b -> Str)
+    map = |fn, fmt|
+        |v| v |> fn |> fmt
 }
 
 expect Fmt.fixed(2)(12.3) == "12.30"
+expect Fmt.fixed(0)(12.3) == "12"
 expect Fmt.fixed(2)(12.3456) == "12.35"
 expect Fmt.fixed(2)(-12.3456) == "-12.35"
+expect Fmt.fixed(2)(12.Dec) == "12.00"
+expect Fmt.fixed(2)(12) == "12.00"
 expect Fmt.pad_left(10, Fmt.fixed(2))(12.3456) == "     12.35"
 expect Fmt.pad_left(3, Fmt.fixed(2))(12.3456) == "12.35"
 expect Fmt.int(123) == "123"
@@ -81,3 +87,9 @@ expect Fmt.pad_left_with(11, "|#", Fmt.int)(1234) == "#|#|#|#1234"
 expect Fmt.pad_right(10, Fmt.int)(1234) == "1234      "
 expect Fmt.pad_right_with(10, "#", Fmt.int)(1234) == "1234######"
 expect Fmt.pad_right_with(11, "|#", Fmt.int)(1234) == "1234|#|#|#|"
+
+expect {
+    Item : { price: Dec }
+    i = { price: 12.5 }
+    Fmt.map(|p| p.price, Fmt.fixed(2))(i) == "12.50"
+}

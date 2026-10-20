@@ -23,17 +23,20 @@ Fmt := {}.{
 
     pad_left_with : U64, Str, (a -> Str) -> (a -> Str)
     pad_left_with = |width, pad, fn|
-        |v|
-            match fn(v) {
-                s if Grapheme.slices(s).len() < width =>
-                    Grapheme.slices(pad)
-                        .repeat((width - Grapheme.slices(s).len()).div_ceil_by(Grapheme.slices(pad).len()))
-                        .join()
-                        .concat(Grapheme.slices(s))
-                        .take_last(width)
-                        |> Str.join_with("")
-                s => s
+        |v| {
+            s = fn(v)
+            gs = Grapheme.slices(s)
+            if gs.len() < width {
+                gp = Grapheme.slices(pad)
+                gp.repeat((width - gs.len()).div_ceil_by(gp.len()))
+                    .join()
+                    .concat(gs)
+                    .take_last(width)
+                    |> Str.join_with("")
             }
+            else
+                s
+        }
 
     int : a -> Str where [ a.to_str : a -> Str, a.is_even : a -> Bool ]
     int = |n| n.to_str()

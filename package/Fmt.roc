@@ -31,6 +31,17 @@ Fmt := {}.{
                 s => s
             }
 
+    pad_center : U64, (a -> Str) -> (a -> Str)
+    pad_center = |width, fn|
+        |v|
+            match fn(v) {
+                s if Grapheme.slices(s).len() < width => {
+                    p = width - Grapheme.slices(s).len()
+                    "${" ".repeat(p.div_ceil_by(2))}${s}${" ".repeat(p.div_floor_by(2))}"
+                }
+                s => s
+            }
+
     pad_left_with : U64, Str, (a -> Str) -> (a -> Str)
     pad_left_with = |width, pad, fn|
         |v| {
@@ -70,7 +81,79 @@ Fmt := {}.{
     map: (b -> a), (a -> Str) -> (b -> Str)
     map = |fn, fmt|
         |v| v |> fn |> fmt
+
+    sign : SignStyle, (a -> Str) -> (a -> Str)
+    sign = |style, fn|
+        |v| {
+            vs = fn(v)
+            if vs.starts_with("-")
+                "${style.neg_prefix}${vs.drop_prefix("-")}${style.neg_suffix}"
+            else
+                "${style.pos_prefix}${vs.drop_prefix("-")}${style.pos_suffix}"
+        }
+
+    SignStyle := {
+        pos_prefix: Str ?? "",
+        pos_suffix: Str ?? "",
+        neg_prefix: Str ?? "",
+        neg_suffix: Str ?? ""
+    }
+
+    neg_only = SignStyle.{ neg_prefix: "-" }
+    always = SignStyle.{ neg_prefix: "-", pos_prefix: "+" }
+    accounting = SignStyle.{ neg_prefix: "(", neg_suffix: ")", pos_prefix: " ", pos_suffix: " " }
+
+    thousands : (a -> Str) -> (a -> Str)
+    thousands = |fn|
+        on_magnitude(|m|
+            match m.split_on(".") {
+                [i, .. as rest] => {
+                    i1 = Grapheme.slices(i)
+                        .rev()
+                        .chunks_of(3)
+                        .map(|ch| ch.rev() |> Str.join_with(""))
+                        .intersperse(",")
+                        .rev()
+                        |> Str.join_with("")
+                    if rest.is_empty()
+                        i1
+                    else
+                        "${i1}.${Str.join_with(rest, "")}"
+                }
+                [] => m
+            }, fn)
+
+    NumStyle := {
+        dp: U64, 
+        sign: SignStyle ?? neg_only, 
+        group:  Bool ?? False, 
+        width: U64 ?? 0, 
+        align: [Left, Right, Center] ?? Right
+    }
+
+    num : NumStyle -> (Dec -> Str)
+    num = |spec|
+        |v| {
+            n = Fmt.sign(spec.sign,
+                (if spec.group Fmt.thousands else |i| i)(Fmt.fixed(spec.dp)))
+            match spec.align {
+                Right => Fmt.pad_left(spec.width, n)(v)
+                Left => Fmt.pad_right(spec.width, n)(v)
+                Center => Fmt.pad_center(spec.width, n)(v)
+            }
+        }
+
 }
+
+on_magnitude : (Str -> Str), (a -> Str) -> (a -> Str)
+on_magnitude = |fmt, fn|
+    |v| {
+        vs = fn(v)
+        if vs.starts_with("-")
+            "-${vs.drop_prefix("-") |> fmt}"
+        else
+            fmt(vs)
+    }
 
 expect Fmt.fixed(2)(12.3) == "12.30"
 expect Fmt.fixed(0)(12.3) == "12"
@@ -87,9 +170,29 @@ expect Fmt.pad_left_with(11, "|#", Fmt.int)(1234) == "#|#|#|#1234"
 expect Fmt.pad_right(10, Fmt.int)(1234) == "1234      "
 expect Fmt.pad_right_with(10, "#", Fmt.int)(1234) == "1234######"
 expect Fmt.pad_right_with(11, "|#", Fmt.int)(1234) == "1234|#|#|#|"
+expect Fmt.pad_center(10, Fmt.int)(1234) == "   1234   "
+expect Fmt.pad_center(11, Fmt.int)(1234) == "    1234   "
 
 expect {
     Item : { price: Dec }
     i = { price: 12.5 }
     Fmt.map(|p| p.price, Fmt.fixed(2))(i) == "12.50"
 }
+
+expect Fmt.sign(Fmt.neg_only, Fmt.int)(12) == "12"
+expect Fmt.sign(Fmt.neg_only, Fmt.int)(-12) == "-12"
+expect Fmt.sign(Fmt.always, Fmt.int)(12) == "+12"
+expect Fmt.sign(Fmt.always, Fmt.int)(-12) == "-12"
+expect Fmt.sign(Fmt.accounting, Fmt.int)(12) == " 12 "
+expect Fmt.sign(Fmt.accounting, Fmt.int)(-12) == "(12)"
+
+expect Fmt.thousands(Fmt.int)(12345) == "12,345"
+expect Fmt.thousands(Fmt.int)(-12345) == "-12,345"
+expect Fmt.thousands(Fmt.fixed(2))(12345.6789) == "12,345.68"
+expect Fmt.thousands(Fmt.fixed(2))(-12345.6789) == "-12,345.68"
+
+expect Fmt.num({dp: 3, group: True, sign: Fmt.always, width: 12, align: Right})(1234.5678) == "  +1,234.568"
+expect Fmt.num({dp: 3, group: True, width: 12, align: Right})(1234.5678) == "   1,234.568"
+expect Fmt.num({dp: 3, group: True, width: 12, align: Left})(-1234.5678) == "-1,234.568  "
+expect Fmt.num({dp: 3})(1234.5678) == "1234.568"
+expect Fmt.num({dp: 2, width: 10, align: Center})(1234.5678) == "  1234.57 "

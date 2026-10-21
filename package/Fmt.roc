@@ -167,6 +167,7 @@ expect Fmt.int(123) == "123"
 expect Fmt.pad_left(10, Fmt.int)(1234) == "      1234"
 expect Fmt.pad_left_with(10, "#", Fmt.int)(1234) == "######1234"
 expect Fmt.pad_left_with(11, "|#", Fmt.int)(1234) == "#|#|#|#1234"
+expect Fmt.pad_left_with(7, "0", Fmt.int)(-1234) == "00-1234" # padding is external to the number representation
 expect Fmt.pad_right(10, Fmt.int)(1234) == "1234      "
 expect Fmt.pad_right_with(10, "#", Fmt.int)(1234) == "1234######"
 expect Fmt.pad_right_with(11, "|#", Fmt.int)(1234) == "1234|#|#|#|"

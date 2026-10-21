@@ -125,9 +125,9 @@ Fmt := {}.{
 
     NumStyle := {
         dp: U64, 
-        sign: SignStyle ?? neg_only, 
-        group:  Bool ?? False, 
-        width: U64 ?? 0, 
+        sign: SignStyle ?? neg_only,
+        group:  Bool ?? False,
+        width: U64 ?? 0,
         align: [Left, Right, Center] ?? Right
     }
 

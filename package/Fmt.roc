@@ -78,10 +78,13 @@ Fmt := {}.{
                 s
         }
 
+    str : Str -> Str
+    str = |s| s
+
     int : a -> Str where [ a.to_str : a -> Str, a.shl_wrap : a, U8 -> a, a.bitwise_and : a, a -> a ] # a should be an integer type
     int = |n| n.to_str()
 
-    map: (b -> a), (a -> Str) -> (b -> Str)
+    map : (b -> a), (a -> Str) -> (b -> Str)
     map = |fn, fmt|
         |v| v |> fn |> fmt
 
@@ -252,3 +255,18 @@ expect Fmt.num({dp: 2, sign: Fmt.accounting })(-1234.5678) == "(1234.57)"
 expect Fmt.num({dp: 2, sign: Fmt.accounting, separators: { group_sep: "," } })(-1234.5) == "(1,234.50)"
 expect Fmt.num({dp: 2, sign: Fmt.accounting, separators: { group_sep: "," } })(1234.5) == " 1,234.50 "
 expect Fmt.num({dp: 2, width: 10, align: Center})(1234.5678) == "  1234.57 "
+expect "${Fmt.num({dp: 2})(0.75432 * 100)}%" == "75.43%" # this is better than a Fmt.percent function, I think
+
+expect {
+    actual = [
+        { desc: "saucepan", price: 15.25, quantity: 3 },
+        { desc: "fryingpan", price: 20.25, quantity: 2 },
+    ].map(|item| "${Fmt.pad_right(11, Fmt.str)(item.desc)}|${Fmt.num_int({width: 5})(item.quantity)} @ ${Fmt.num({dp: 2, width: 10})(item.price)} = ${Fmt.num({dp: 2, width: 10})(item.price * item.quantity.to_dec())}")
+    expected = [
+        "saucepan   |    3 @      15.25 =      45.75",
+        "fryingpan  |    2 @      20.25 =      40.50",
+    ]
+    dbg actual
+    dbg expected
+    actual == expected
+}

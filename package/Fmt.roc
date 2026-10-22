@@ -144,17 +144,36 @@ Fmt := {}.{
                 [] => m
             }, fn)
 
-    NumStyle := {
-        dp: U64, 
+    DecStyle := {
+        dp: U64,
         sign: SignStyle ?? neg_only,
         separators: SeparatorStyle ?? {},
         width: U64 ?? 0,
         align: [Left, Right, Center] ?? Right
     }
 
-    num : NumStyle -> (Dec -> Str)
+    num : DecStyle -> (Dec -> Str)
     num = |spec| {
         n = Fmt.sign(spec.sign, Fmt.separators(spec.separators, Fmt.fixed(spec.dp)))
+        fmt = match spec.align {
+            Right => Fmt.pad_left(spec.width, n)
+            Left => Fmt.pad_right(spec.width, n)
+            Center => Fmt.pad_center(spec.width, n)
+        }
+        |v| fmt(v)
+    }
+
+    IntStyle := {
+        sign: SignStyle ?? neg_only,
+        separators: SeparatorStyle ?? {},
+        width: U64 ?? 0,
+        align: [Left, Right, Center] ?? Right
+    }
+
+    num_int : IntStyle -> (a -> Str)
+        where [ a.to_str : a -> Str, a.shl_wrap : a, U8 -> a, a.bitwise_and : a, a -> a ] # a should be an integer type
+    num_int = |spec| {
+        n = Fmt.sign(spec.sign, Fmt.separators(spec.separators, Fmt.int))
         fmt = match spec.align {
             Right => Fmt.pad_left(spec.width, n)
             Left => Fmt.pad_right(spec.width, n)
@@ -215,6 +234,8 @@ expect Fmt.separators({}, Fmt.int)(-12345) == "-12345"
 expect Fmt.separators({}, Fmt.fixed(2))(12345.6789) == "12345.68"
 expect Fmt.separators({}, Fmt.fixed(2))(-12345.6789) == "-12345.68"
 
+expect Fmt.num_int({separators: Fmt.english, sign: Fmt.always, width: 12, align: Right})(1234.U64) == "      +1,234"
+expect Fmt.num_int({separators: Fmt.english, sign: Fmt.always, width: 12, align: Right})(1234.I64) == "      +1,234"
 expect Fmt.num({dp: 3, separators: Fmt.english, sign: Fmt.always, width: 12, align: Right})(1234.5678) == "  +1,234.568"
 expect Fmt.num({dp: 3, separators: Fmt.english, width: 12, align: Right})(1234.5678) == "   1,234.568"
 expect Fmt.num({dp: 3, separators: Fmt.english, width: 12, align: Left})(-1234.5678) == "-1,234.568  "

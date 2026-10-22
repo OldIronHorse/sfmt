@@ -18,8 +18,8 @@ Fmt := {}.{
 
     PadStyle := { width: U64, align: [Left, Right, Center] ?? Left, fill: Str ?? " " }
 
-    pad : PadStyle, (a -> Str) -> (a -> Str)
-    pad = |spec, fn| {
+    pad : (a -> Str), PadStyle -> (a -> Str)
+    pad = |fn, spec| {
         fs = Grapheme.slices(spec.fill)
         |v| {
             s = fn(v)
@@ -63,8 +63,8 @@ Fmt := {}.{
     map = |fn, fmt|
         |v| v |> fn |> fmt
 
-    sign : SignStyle, (a -> Str) -> (a -> Str)
-    sign = |style, fn|
+    sign : (a -> Str), SignStyle-> (a -> Str)
+    sign = |fn, style|
         |v| {
             vs = fn(v)
             if vs.starts_with("-")
@@ -96,8 +96,8 @@ Fmt := {}.{
     french = SeparatorStyle.{ group_sep: " ", dec_sep: "," }
     indian = SeparatorStyle.{ group_sep: ",", group_size: 2, first_group_size: 3 }
 
-    separators : SeparatorStyle, (a -> Str) -> (a -> Str)
-    separators = |spec, fn|
+    separators : (a -> Str), SeparatorStyle -> (a -> Str)
+    separators = |fn, spec|
         on_magnitude(|m|
             match m.split_on(".") {
                 [i, .. as rest] => {
@@ -132,8 +132,8 @@ Fmt := {}.{
 
     num : DecStyle -> (Dec -> Str)
     num = |spec| {
-        n = Fmt.sign(spec.sign, Fmt.separators(spec.separators, Fmt.fixed(spec.dp)))
-        fmt = pad({ width: spec.width, align: spec.align }, n)
+        n = Fmt.sign(Fmt.separators(Fmt.fixed(spec.dp), spec.separators), spec.sign)
+        fmt = pad(n, { width: spec.width, align: spec.align })
         |v| fmt(v)
     }
 
@@ -147,16 +147,16 @@ Fmt := {}.{
     num_int : IntStyle -> (a -> Str)
         where [ a.to_str : a -> Str, a.shl_wrap : a, U8 -> a, a.bitwise_and : a, a -> a ] # a should be an integer type
     num_int = |spec| {
-        n = Fmt.sign(spec.sign, Fmt.separators(spec.separators, Fmt.int))
-        fmt = pad({ width: spec.width, align: spec.align }, n)
+        n = Fmt.sign(Fmt.separators(Fmt.int, spec.separators), spec.sign)
+        fmt = pad(n, { width: spec.width, align: spec.align })
         |v| fmt(v)
     }
 
-    prefix : Str, (a -> Str) -> (a -> Str)
-    prefix = |p, fn| on_magnitude(|m| "${p}${m}", fn)
+    prefix : (a -> Str), Str -> (a -> Str)
+    prefix = |fn, p| on_magnitude(|m| "${p}${m}", fn)
 
 
-    gbp = Fmt.prefix("£", Fmt.separators(Fmt.english, Fmt.fixed(2)))
+    gbp = Fmt.fixed(2) |> Fmt.separators(Fmt.english) |> Fmt.prefix("£")
 
 }
 
@@ -170,7 +170,7 @@ on_magnitude = |fmt, fn|
             fmt(vs)
     }
 
-expect 12.3 |> Fmt.fixed(2) == "12.30"
+expect Fmt.fixed(2)(12.3) == "12.30"
 expect Fmt.fixed(0)(12.3) == "12"
 expect Fmt.fixed(2)(12.3456) == "12.35"
 expect Fmt.fixed(2)(-12.3456) == "-12.35"
@@ -179,18 +179,18 @@ expect Fmt.fixed(2)(12) == "12.00"
 expect Fmt.fixed(0)(12.5) == "13"
 expect Fmt.fixed(0)(12.4) == "12"
 expect Fmt.fixed(2)(-0.001) == "0.00"
-expect Fmt.pad({ width: 10, align: Right }, Fmt.fixed(2))(12.3456) == "     12.35"
-expect Fmt.pad({ width: 3, align: Right }, Fmt.fixed(2))(12.3456) == "12.35"
+expect (Fmt.fixed(2) |> Fmt.pad({ width: 10, align: Right }))(12.3456) == "     12.35"
+expect (Fmt.fixed(2) |> Fmt.pad({ width: 3, align: Right }))(12.3456)== "12.35"
 expect Fmt.int(123) == "123"
-expect Fmt.pad({ width: 10, align: Right }, Fmt.int)(1234) == "      1234"
-expect Fmt.pad({ width: 10, align: Right, fill: "#" }, Fmt.int)(1234) == "######1234"
-expect Fmt.pad({ width: 11, align: Right, fill: "|#" }, Fmt.int)(1234) == "#|#|#|#1234"
-expect Fmt.pad({ width: 7, align: Right, fill: "0" }, Fmt.int)(-1234) == "00-1234" # padding is external to the number representation
-expect Fmt.pad({ width: 10, align: Left }, Fmt.int)(1234) == "1234      "
-expect Fmt.pad({ width: 10, fill: "#", align: Left }, Fmt.int)(1234) == "1234######"
-expect Fmt.pad({ width: 11, fill: "|#", align: Left }, Fmt.int)(1234) == "1234|#|#|#|"
-expect Fmt.pad({ width: 10, align: Center }, Fmt.int)(1234) == "   1234   "
-expect Fmt.pad({ width: 11, align: Center }, Fmt.int)(1234) == "    1234   "
+expect (Fmt.int |> Fmt.pad({ width: 10, align: Right }))(1234) == "      1234"
+expect Fmt.pad(Fmt.int, { width: 10, align: Right, fill: "#" })(1234) == "######1234"
+expect Fmt.pad(Fmt.int, { width: 11, align: Right, fill: "|#" })(1234) == "#|#|#|#1234"
+expect Fmt.pad(Fmt.int, { width: 7, align: Right, fill: "0" })(-1234) == "00-1234" # padding is external to the number representation
+expect Fmt.pad(Fmt.int, { width: 10, align: Left })(1234) == "1234      "
+expect Fmt.pad(Fmt.int, { width: 10, fill: "#", align: Left })(1234) == "1234######"
+expect Fmt.pad(Fmt.int, { width: 11, fill: "|#", align: Left })(1234) == "1234|#|#|#|"
+expect Fmt.pad(Fmt.int, { width: 10, align: Center })(1234) == "   1234   "
+expect Fmt.pad(Fmt.int, { width: 11, align: Center })(1234) == "    1234   "
 
 expect {
     Item : { price: Dec }
@@ -198,17 +198,17 @@ expect {
     Fmt.map(|p| p.price, Fmt.fixed(2))(i) == "12.50"
 }
 
-expect Fmt.sign(Fmt.neg_only, Fmt.int)(12) == "12"
-expect Fmt.sign(Fmt.neg_only, Fmt.int)(-12) == "-12"
-expect Fmt.sign(Fmt.always, Fmt.int)(12) == "+12"
-expect Fmt.sign(Fmt.always, Fmt.int)(-12) == "-12"
-expect Fmt.sign(Fmt.accounting, Fmt.int)(12) == " 12 "
-expect Fmt.sign(Fmt.accounting, Fmt.int)(-12) == "(12)"
+expect Fmt.sign(Fmt.int, Fmt.neg_only)(12) == "12"
+expect Fmt.sign(Fmt.int, Fmt.neg_only)(-12) == "-12"
+expect Fmt.sign(Fmt.int, Fmt.always)(12) == "+12"
+expect Fmt.sign(Fmt.int, Fmt.always)(-12) == "-12"
+expect Fmt.sign(Fmt.int, Fmt.accounting)(12) == " 12 "
+expect (Fmt.int |> Fmt.sign(Fmt.accounting))(-12) == "(12)"
 
-expect Fmt.separators({}, Fmt.int)(12345) == "12345"
-expect Fmt.separators({}, Fmt.int)(-12345) == "-12345"
-expect Fmt.separators({}, Fmt.fixed(2))(12345.6789) == "12345.68"
-expect Fmt.separators({}, Fmt.fixed(2))(-12345.6789) == "-12345.68"
+expect (Fmt.int |> Fmt.separators({}))(12345) == "12345"
+expect Fmt.separators(Fmt.int, {})(-12345) == "-12345"
+expect Fmt.separators(Fmt.fixed(2), {})(12345.6789) == "12345.68"
+expect Fmt.separators(Fmt.fixed(2), {})(-12345.6789) == "-12345.68"
 
 expect Fmt.num_int({separators: Fmt.english, sign: Fmt.always, width: 12, align: Right})(1234.U64) == "      +1,234"
 expect Fmt.num_int({separators: Fmt.english, sign: Fmt.always, width: 12, align: Right})(1234.I64) == "      +1,234"
@@ -235,7 +235,7 @@ expect {
         { desc: "saucepan", price: 15.25, quantity: 3 },
         { desc: "fryingpan", price: 20.25, quantity: 2 },
         { desc: "discount", price: -50, quantity: 1 },
-    ].map(|item| "${Fmt.pad({ width: 11 }, Fmt.str)(item.desc)}|${Fmt.num_int({width: 5})(item.quantity)} @ ${Fmt.num({dp: 2, sign: Fmt.accounting, width: 10})(item.price)} = ${Fmt.pad({ width: 10, align: Right }, Fmt.sign(Fmt.accounting, Fmt.gbp))(item.price * item.quantity.to_dec())}")
+    ].map(|item| "${(Fmt.str |> Fmt.pad({ width: 11 }))(item.desc)}|${Fmt.num_int({width: 5})(item.quantity)} @ ${Fmt.num({dp: 2, sign: Fmt.accounting, width: 10})(item.price)} = ${(Fmt.gbp |> Fmt.sign(Fmt.accounting) |> Fmt.pad({ width: 10, align: Right }))(item.price * item.quantity.to_dec())}")
     expected = [
         "saucepan   |    3 @     15.25  =    £45.75 ",
         "fryingpan  |    2 @     20.25  =    £40.50 ",
@@ -244,5 +244,5 @@ expect {
     actual == expected
 }
 
-expect Fmt.sign(Fmt.accounting, Fmt.prefix("£", Fmt.separators(Fmt.english, Fmt.fixed(2))))(1202.3) == " £1,202.30 "
-expect Fmt.sign(Fmt.accounting, Fmt.prefix("£", Fmt.separators(Fmt.english, Fmt.fixed(2))))(-1202.3) == "(£1,202.30)"
+expect (Fmt.fixed(2) |> Fmt.separators(Fmt.english) |> Fmt.prefix("£") |> Fmt.sign(Fmt.accounting))(1202.3) == " £1,202.30 "
+expect (Fmt.fixed(2) |> Fmt.separators(Fmt.english) |> Fmt.prefix("£") |> Fmt.sign(Fmt.accounting))(-1202.3) == "(£1,202.30)"

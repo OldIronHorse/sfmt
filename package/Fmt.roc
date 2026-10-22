@@ -261,10 +261,11 @@ expect {
     actual = [
         { desc: "saucepan", price: 15.25, quantity: 3 },
         { desc: "fryingpan", price: 20.25, quantity: 2 },
-    ].map(|item| "${Fmt.pad_right(11, Fmt.str)(item.desc)}|${Fmt.num_int({width: 5})(item.quantity)} @ ${Fmt.num({dp: 2, width: 10})(item.price)} = ${Fmt.num({dp: 2, width: 10})(item.price * item.quantity.to_dec())}")
+    ].map(|item| "${Fmt.pad_right(11, Fmt.str)(item.desc)}|${Fmt.num_int({width: 5})(item.quantity)} @ ${Fmt.num({dp: 2, sign: Fmt.accounting, width: 10})(item.price)} = ${Fmt.num({dp: 2, sign: Fmt.accounting, width: 10})(item.price * item.quantity.to_dec())}")
     expected = [
-        "saucepan   |    3 @      15.25 =      45.75",
-        "fryingpan  |    2 @      20.25 =      40.50",
+        "saucepan   |    3 @      15.25  =     45.75 ",
+        "fryingpan  |    2 @      20.25  =     40.50 ",
+        "discount   |    1 @     (50.00) =    (50.00)",
     ]
     dbg actual
     dbg expected

@@ -92,7 +92,7 @@ Fmt := {}.{
             if vs.starts_with("-")
                 "${style.neg_prefix}${vs.drop_prefix("-")}${style.neg_suffix}"
             else
-                "${style.pos_prefix}${vs.drop_prefix("-")}${style.pos_suffix}"
+                "${style.pos_prefix}${vs}${style.pos_suffix}"
         }
 
     SignStyle := {

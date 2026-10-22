@@ -132,8 +132,10 @@ Fmt := {}.{
 
     num : DecStyle -> (Dec -> Str)
     num = |spec| {
-        n = Fmt.sign(Fmt.separators(Fmt.fixed(spec.dp), spec.separators), spec.sign)
-        fmt = pad(n, { width: spec.width, align: spec.align })
+        fmt = Fmt.fixed(spec.dp)
+            |> Fmt.separators(spec.separators)
+            |> Fmt.sign(spec.sign)
+            |> Fmt.pad({ width: spec.width, align: spec.align })
         |v| fmt(v)
     }
 
@@ -147,8 +149,10 @@ Fmt := {}.{
     num_int : IntStyle -> (a -> Str)
         where [ a.to_str : a -> Str, a.shl_wrap : a, U8 -> a, a.bitwise_and : a, a -> a ] # a should be an integer type
     num_int = |spec| {
-        n = Fmt.sign(Fmt.separators(Fmt.int, spec.separators), spec.sign)
-        fmt = pad(n, { width: spec.width, align: spec.align })
+        fmt = Fmt.int
+            |> Fmt.separators(spec.separators)
+            |> Fmt.sign(spec.sign)
+            |> Fmt.pad({ width: spec.width, align: spec.align })
         |v| fmt(v)
     }
 
@@ -158,6 +162,32 @@ Fmt := {}.{
 
     gbp = Fmt.fixed(2) |> Fmt.separators(Fmt.english) |> Fmt.prefix("£")
 
+    TruncStyle := {
+        width: U64,
+        keep: [Start, End] ?? Start,
+        ellipsis: Str ?? "…",
+    }
+
+    trunc : (a -> Str), TruncStyle -> (a -> Str)
+    trunc = |fn, spec| {
+        es = Grapheme.slices(spec.ellipsis)
+        |v| {
+            s = fn(v)
+            ss = Grapheme.slices(s)
+            if ss.len() > spec.width
+                match spec.keep {
+                    Start =>
+                        ss.take_first(spec.width - es.len())
+                            .concat(es)
+                            |> Str.join_with("")
+                    End =>
+                        es.concat(ss.take_last(spec.width - es.len()))
+                            |> Str.join_with("")
+                }
+            else
+                s
+        }
+    }
 }
 
 on_magnitude : (Str -> Str), (a -> Str) -> (a -> Str)
@@ -246,3 +276,7 @@ expect {
 
 expect (Fmt.fixed(2) |> Fmt.separators(Fmt.english) |> Fmt.prefix("£") |> Fmt.sign(Fmt.accounting))(1202.3) == " £1,202.30 "
 expect (Fmt.fixed(2) |> Fmt.separators(Fmt.english) |> Fmt.prefix("£") |> Fmt.sign(Fmt.accounting))(-1202.3) == "(£1,202.30)"
+
+expect Fmt.trunc(Fmt.str, { width: 20 })("abcdefg") == "abcdefg"
+expect Fmt.trunc(Fmt.str, { width: 5 })("abcdefg") == "abcd…"
+expect Fmt.trunc(Fmt.str, { width: 5, keep: End })("abcdefg") == "…defg"

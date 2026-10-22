@@ -199,4 +199,6 @@ expect Fmt.num({dp: 3, group: True, sign: Fmt.always, width: 12, align: Right})(
 expect Fmt.num({dp: 3, group: True, width: 12, align: Right})(1234.5678) == "   1,234.568"
 expect Fmt.num({dp: 3, group: True, width: 12, align: Left})(-1234.5678) == "-1,234.568  "
 expect Fmt.num({dp: 3})(1234.5678) == "1234.568"
+expect Fmt.num({dp: 2, sign: Fmt.accounting })(1234.5678) == " 1234.57 "
+expect Fmt.num({dp: 2, sign: Fmt.accounting })(-1234.5678) == "(1234.57)"
 expect Fmt.num({dp: 2, width: 10, align: Center})(1234.5678) == "  1234.57 "

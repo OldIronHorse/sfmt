@@ -106,22 +106,40 @@ Fmt := {}.{
     always = SignStyle.{ neg_prefix: "-", pos_prefix: "+" }
     accounting = SignStyle.{ neg_prefix: "(", neg_suffix: ")", pos_prefix: " ", pos_suffix: " " }
 
-    thousands : (a -> Str) -> (a -> Str)
-    thousands = |fn|
+    SeparatorStyle := {
+        dec_sep: Str ?? ".",
+        group_sep: Str ?? "",
+        group_size: U64 ?? 3,
+        first_group_size: U64 ?? 0,
+    }
+
+    english = SeparatorStyle.{ group_sep: "," }
+    italian = SeparatorStyle.{ group_sep: ".", dec_sep: "," }
+    french = SeparatorStyle.{ group_sep: " ", dec_sep: "," }
+    indian = SeparatorStyle.{ group_sep: ",", group_size: 2, first_group_size: 3 }
+
+    separators : SeparatorStyle, (a -> Str) -> (a -> Str)
+    separators = |spec, fn|
         on_magnitude(|m|
             match m.split_on(".") {
                 [i, .. as rest] => {
-                    i1 = Grapheme.slices(i)
+                    digits = Grapheme.slices(i)
                         .rev()
-                        .chunks_of(3)
+                    i1 = digits
+                        .take_first(spec.first_group_size)
+                        |> List.single()
+                        .concat(digits
+                            .drop_first(spec.first_group_size)
+                            .chunks_of(spec.group_size))
+                        .drop_if(List.is_empty)
                         .map(|ch| ch.rev() |> Str.join_with(""))
-                        .intersperse(",")
+                        .intersperse(spec.group_sep)
                         .rev()
                         |> Str.join_with("")
                     if rest.is_empty()
                         i1
                     else
-                        "${i1}.${Str.join_with(rest, "")}"
+                        "${i1}${spec.dec_sep}${Str.join_with(rest, "")}"
                 }
                 [] => m
             }, fn)
@@ -129,15 +147,14 @@ Fmt := {}.{
     NumStyle := {
         dp: U64, 
         sign: SignStyle ?? neg_only,
-        group:  Bool ?? False,
+        separators: SeparatorStyle ?? {},
         width: U64 ?? 0,
         align: [Left, Right, Center] ?? Right
     }
 
     num : NumStyle -> (Dec -> Str)
     num = |spec| {
-        n = Fmt.sign(spec.sign,
-            (if spec.group Fmt.thousands else |i| i)(Fmt.fixed(spec.dp)))
+        n = Fmt.sign(spec.sign, Fmt.separators(spec.separators, Fmt.fixed(spec.dp)))
         fmt = match spec.align {
             Right => Fmt.pad_left(spec.width, n)
             Left => Fmt.pad_right(spec.width, n)
@@ -193,17 +210,24 @@ expect Fmt.sign(Fmt.always, Fmt.int)(-12) == "-12"
 expect Fmt.sign(Fmt.accounting, Fmt.int)(12) == " 12 "
 expect Fmt.sign(Fmt.accounting, Fmt.int)(-12) == "(12)"
 
-expect Fmt.thousands(Fmt.int)(12345) == "12,345"
-expect Fmt.thousands(Fmt.int)(-12345) == "-12,345"
-expect Fmt.thousands(Fmt.fixed(2))(12345.6789) == "12,345.68"
-expect Fmt.thousands(Fmt.fixed(2))(-12345.6789) == "-12,345.68"
+expect Fmt.separators({}, Fmt.int)(12345) == "12345"
+expect Fmt.separators({}, Fmt.int)(-12345) == "-12345"
+expect Fmt.separators({}, Fmt.fixed(2))(12345.6789) == "12345.68"
+expect Fmt.separators({}, Fmt.fixed(2))(-12345.6789) == "-12345.68"
 
-expect Fmt.num({dp: 3, group: True, sign: Fmt.always, width: 12, align: Right})(1234.5678) == "  +1,234.568"
-expect Fmt.num({dp: 3, group: True, width: 12, align: Right})(1234.5678) == "   1,234.568"
-expect Fmt.num({dp: 3, group: True, width: 12, align: Left})(-1234.5678) == "-1,234.568  "
+expect Fmt.num({dp: 3, separators: Fmt.english, sign: Fmt.always, width: 12, align: Right})(1234.5678) == "  +1,234.568"
+expect Fmt.num({dp: 3, separators: Fmt.english, width: 12, align: Right})(1234.5678) == "   1,234.568"
+expect Fmt.num({dp: 3, separators: Fmt.english, width: 12, align: Left})(-1234.5678) == "-1,234.568  "
+expect Fmt.num({dp: 3, separators: Fmt.french, sign: Fmt.always, width: 12, align: Right})(1234.5678) == "  +1 234,568"
+expect Fmt.num({dp: 3, separators: Fmt.french, width: 12, align: Right})(1234.5678) == "   1 234,568"
+expect Fmt.num({dp: 3, separators: Fmt.french, width: 12, align: Left})(-1234.5678) == "-1 234,568  "
+expect Fmt.num({dp: 3, separators: Fmt.italian, sign: Fmt.always, width: 12, align: Right})(1234.5678) == "  +1.234,568"
+expect Fmt.num({dp: 3, separators: Fmt.italian, width: 12, align: Right})(1234.5678) == "   1.234,568"
+expect Fmt.num({dp: 3, separators: Fmt.italian, width: 12, align: Left})(-1234.5678) == "-1.234,568  "
+expect Fmt.num({dp: 0, separators: Fmt.indian})(123456789) == "12,34,56,789"
 expect Fmt.num({dp: 3})(1234.5678) == "1234.568"
 expect Fmt.num({dp: 2, sign: Fmt.accounting })(1234.5678) == " 1234.57 "
 expect Fmt.num({dp: 2, sign: Fmt.accounting })(-1234.5678) == "(1234.57)"
-expect Fmt.num({dp: 2, sign: Fmt.accounting, group: True })(-1234.5) == "(1,234.50)"
-expect Fmt.num({dp: 2, sign: Fmt.accounting, group: True })(1234.5) == " 1,234.50 "
+expect Fmt.num({dp: 2, sign: Fmt.accounting, separators: { group_sep: "," } })(-1234.5) == "(1,234.50)"
+expect Fmt.num({dp: 2, sign: Fmt.accounting, separators: { group_sep: "," } })(1234.5) == " 1,234.50 "
 expect Fmt.num({dp: 2, width: 10, align: Center})(1234.5678) == "  1234.57 "

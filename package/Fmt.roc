@@ -16,67 +16,42 @@ Fmt := {}.{
             }
     }
 
-    pad_left : U64, (a -> Str) -> (a -> Str)
-    pad_left = |width, fn|
-        |v|
-            match fn(v) {
-                s if Grapheme.slices(s).len() < width =>
-                    "${" ".repeat(width - Grapheme.slices(s).len())}${s}"
-                s => s
-            }
+    PadStyle := { width: U64, align: [Left, Right, Center] ?? Left, fill: Str ?? " " }
 
-    pad_right : U64, (a -> Str) -> (a -> Str)
-    pad_right = |width, fn|
-        |v|
-            match fn(v) {
-                s if Grapheme.slices(s).len() < width =>
-                    "${s}${" ".repeat(width - Grapheme.slices(s).len())}"
-                s => s
-            }
-
-    pad_center : U64, (a -> Str) -> (a -> Str)
-    pad_center = |width, fn|
-        |v|
-            match fn(v) {
-                s if Grapheme.slices(s).len() < width => {
-                    p = width - Grapheme.slices(s).len()
-                    "${" ".repeat(p.div_ceil_by(2))}${s}${" ".repeat(p.div_floor_by(2))}"
+    pad : PadStyle, (a -> Str) -> (a -> Str)
+    pad = |spec, fn| {
+        fs = Grapheme.slices(spec.fill)
+        |v| {
+            s = fn(v)
+            gs = Grapheme.slices(s)
+            if spec.width < gs.len()
+                s
+            else {
+                pc = (spec.width - gs.len()).div_ceil_by(fs.len())
+                match spec.align {
+                    Left =>
+                        gs |> List.single()
+                            .concat(fs.repeat(pc))
+                            .join()
+                            .take_first(spec.width)
+                            |> Str.join_with("")
+                    Right =>
+                        fs.repeat(pc)
+                            .join()
+                            .concat(gs)
+                            .take_last(spec.width)
+                            |> Str.join_with("")
+                    Center =>
+                        fs.repeat(pc.div_ceil_by(2))
+                            .append(gs)
+                            .join()
+                            .concat(fs.repeat(pc.div_floor_by(2)).join())
+                            .take_first(spec.width)
+                            |> Str.join_with("")
                 }
-                s => s
             }
-
-    pad_left_with : U64, Str, (a -> Str) -> (a -> Str)
-    pad_left_with = |width, pad, fn|
-        |v| {
-            s = fn(v)
-            gs = Grapheme.slices(s)
-            if gs.len() < width {
-                gp = Grapheme.slices(pad)
-                gp.repeat((width - gs.len()).div_ceil_by(gp.len()))
-                    .join()
-                    .concat(gs)
-                    .take_last(width)
-                    |> Str.join_with("")
-            }
-            else
-                s
         }
-
-    pad_right_with : U64, Str, (a -> Str) -> (a -> Str)
-    pad_right_with = |width, pad, fn|
-        |v| {
-            s = fn(v)
-            gs = Grapheme.slices(s)
-            if gs.len() < width {
-                gp = Grapheme.slices(pad)
-                gs.concat(gp.repeat((width - gs.len()).div_ceil_by(gp.len()))
-                            .join())
-                    .take_first(width)
-                    |> Str.join_with("")
-            }
-            else
-                s
-        }
+    }
 
     str : Str -> Str
     str = |s| s
@@ -158,11 +133,7 @@ Fmt := {}.{
     num : DecStyle -> (Dec -> Str)
     num = |spec| {
         n = Fmt.sign(spec.sign, Fmt.separators(spec.separators, Fmt.fixed(spec.dp)))
-        fmt = match spec.align {
-            Right => Fmt.pad_left(spec.width, n)
-            Left => Fmt.pad_right(spec.width, n)
-            Center => Fmt.pad_center(spec.width, n)
-        }
+        fmt = pad({ width: spec.width, align: spec.align }, n)
         |v| fmt(v)
     }
 
@@ -177,13 +148,15 @@ Fmt := {}.{
         where [ a.to_str : a -> Str, a.shl_wrap : a, U8 -> a, a.bitwise_and : a, a -> a ] # a should be an integer type
     num_int = |spec| {
         n = Fmt.sign(spec.sign, Fmt.separators(spec.separators, Fmt.int))
-        fmt = match spec.align {
-            Right => Fmt.pad_left(spec.width, n)
-            Left => Fmt.pad_right(spec.width, n)
-            Center => Fmt.pad_center(spec.width, n)
-        }
+        fmt = pad({ width: spec.width, align: spec.align }, n)
         |v| fmt(v)
     }
+
+    prefix : Str, (a -> Str) -> (a -> Str)
+    prefix = |p, fn| on_magnitude(|m| "${p}${m}", fn)
+
+
+    gbp = Fmt.prefix("£", Fmt.separators(Fmt.english, Fmt.fixed(2)))
 
 }
 
@@ -206,18 +179,18 @@ expect Fmt.fixed(2)(12) == "12.00"
 expect Fmt.fixed(0)(12.5) == "13"
 expect Fmt.fixed(0)(12.4) == "12"
 expect Fmt.fixed(2)(-0.001) == "0.00"
-expect Fmt.pad_left(10, Fmt.fixed(2))(12.3456) == "     12.35"
-expect Fmt.pad_left(3, Fmt.fixed(2))(12.3456) == "12.35"
+expect Fmt.pad({ width: 10, align: Right }, Fmt.fixed(2))(12.3456) == "     12.35"
+expect Fmt.pad({ width: 3, align: Right }, Fmt.fixed(2))(12.3456) == "12.35"
 expect Fmt.int(123) == "123"
-expect Fmt.pad_left(10, Fmt.int)(1234) == "      1234"
-expect Fmt.pad_left_with(10, "#", Fmt.int)(1234) == "######1234"
-expect Fmt.pad_left_with(11, "|#", Fmt.int)(1234) == "#|#|#|#1234"
-expect Fmt.pad_left_with(7, "0", Fmt.int)(-1234) == "00-1234" # padding is external to the number representation
-expect Fmt.pad_right(10, Fmt.int)(1234) == "1234      "
-expect Fmt.pad_right_with(10, "#", Fmt.int)(1234) == "1234######"
-expect Fmt.pad_right_with(11, "|#", Fmt.int)(1234) == "1234|#|#|#|"
-expect Fmt.pad_center(10, Fmt.int)(1234) == "   1234   "
-expect Fmt.pad_center(11, Fmt.int)(1234) == "    1234   "
+expect Fmt.pad({ width: 10, align: Right }, Fmt.int)(1234) == "      1234"
+expect Fmt.pad({ width: 10, align: Right, fill: "#" }, Fmt.int)(1234) == "######1234"
+expect Fmt.pad({ width: 11, align: Right, fill: "|#" }, Fmt.int)(1234) == "#|#|#|#1234"
+expect Fmt.pad({ width: 7, align: Right, fill: "0" }, Fmt.int)(-1234) == "00-1234" # padding is external to the number representation
+expect Fmt.pad({ width: 10, align: Left }, Fmt.int)(1234) == "1234      "
+expect Fmt.pad({ width: 10, fill: "#", align: Left }, Fmt.int)(1234) == "1234######"
+expect Fmt.pad({ width: 11, fill: "|#", align: Left }, Fmt.int)(1234) == "1234|#|#|#|"
+expect Fmt.pad({ width: 10, align: Center }, Fmt.int)(1234) == "   1234   "
+expect Fmt.pad({ width: 11, align: Center }, Fmt.int)(1234) == "    1234   "
 
 expect {
     Item : { price: Dec }
@@ -261,13 +234,15 @@ expect {
     actual = [
         { desc: "saucepan", price: 15.25, quantity: 3 },
         { desc: "fryingpan", price: 20.25, quantity: 2 },
-    ].map(|item| "${Fmt.pad_right(11, Fmt.str)(item.desc)}|${Fmt.num_int({width: 5})(item.quantity)} @ ${Fmt.num({dp: 2, sign: Fmt.accounting, width: 10})(item.price)} = ${Fmt.num({dp: 2, sign: Fmt.accounting, width: 10})(item.price * item.quantity.to_dec())}")
+        { desc: "discount", price: -50, quantity: 1 },
+    ].map(|item| "${Fmt.pad({ width: 11 }, Fmt.str)(item.desc)}|${Fmt.num_int({width: 5})(item.quantity)} @ ${Fmt.num({dp: 2, sign: Fmt.accounting, width: 10})(item.price)} = ${Fmt.pad({ width: 10, align: Right }, Fmt.sign(Fmt.accounting, Fmt.gbp))(item.price * item.quantity.to_dec())}")
     expected = [
-        "saucepan   |    3 @      15.25  =     45.75 ",
-        "fryingpan  |    2 @      20.25  =     40.50 ",
-        "discount   |    1 @     (50.00) =    (50.00)",
+        "saucepan   |    3 @     15.25  =    £45.75 ",
+        "fryingpan  |    2 @     20.25  =    £40.50 ",
+        "discount   |    1 @    (50.00) =   (£50.00)",
     ]
-    dbg actual
-    dbg expected
     actual == expected
 }
+
+expect Fmt.sign(Fmt.accounting, Fmt.prefix("£", Fmt.separators(Fmt.english, Fmt.fixed(2))))(1202.3) == " £1,202.30 "
+expect Fmt.sign(Fmt.accounting, Fmt.prefix("£", Fmt.separators(Fmt.english, Fmt.fixed(2))))(-1202.3) == "(£1,202.30)"

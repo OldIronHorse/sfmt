@@ -30,8 +30,8 @@ Fmt := {}.{
                 pc = (spec.width - gs.len()).div_ceil_by(fs.len())
                 match spec.align {
                     Left =>
-                        gs |> List.single()
-                            .concat(fs.repeat(pc))
+                        fs.repeat(pc)
+                            .prepend(gs)
                             .join()
                             .take_first(spec.width)
                             |> Str.join_with("")

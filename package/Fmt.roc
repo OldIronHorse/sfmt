@@ -132,16 +132,16 @@ Fmt := {}.{
     }
 
     num : NumStyle -> (Dec -> Str)
-    num = |spec|
-        |v| {
-            n = Fmt.sign(spec.sign,
-                (if spec.group Fmt.thousands else |i| i)(Fmt.fixed(spec.dp)))
-            match spec.align {
-                Right => Fmt.pad_left(spec.width, n)(v)
-                Left => Fmt.pad_right(spec.width, n)(v)
-                Center => Fmt.pad_center(spec.width, n)(v)
-            }
+    num = |spec| {
+        n = Fmt.sign(spec.sign,
+            (if spec.group Fmt.thousands else |i| i)(Fmt.fixed(spec.dp)))
+        fmt = match spec.align {
+            Right => Fmt.pad_left(spec.width, n)
+            Left => Fmt.pad_right(spec.width, n)
+            Center => Fmt.pad_center(spec.width, n)
         }
+        |v| fmt(v)
+    }
 
 }
 

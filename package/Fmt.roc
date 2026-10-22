@@ -170,7 +170,7 @@ on_magnitude = |fmt, fn|
             fmt(vs)
     }
 
-expect Fmt.fixed(2)(12.3) == "12.30"
+expect 12.3 |> Fmt.fixed(2) == "12.30"
 expect Fmt.fixed(0)(12.3) == "12"
 expect Fmt.fixed(2)(12.3456) == "12.35"
 expect Fmt.fixed(2)(-12.3456) == "-12.35"

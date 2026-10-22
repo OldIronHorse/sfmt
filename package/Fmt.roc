@@ -172,23 +172,22 @@ Fmt := {}.{
     trunc = |fn, spec| {
         es = Grapheme.slices(spec.ellipsis)
         |v| {
-            if spec.width > es.len() {
-                s = fn(v)
-                ss = Grapheme.slices(s)
-                if ss.len() > spec.width
-                    match spec.keep {
-                        Start =>
-                            ss.take_first(spec.width - es.len())
-                                .concat(es)
-                                |> Str.join_with("")
-                        End =>
-                            es.concat(ss.take_last(spec.width - es.len()))
-                                |> Str.join_with("")
-                    }
-                else
-                    s
-            } else
+            s = fn(v)
+            ss = Grapheme.slices(s)
+            if ss.len() <= spec.width
+                s
+            else if es.len() > spec.width
                 es.take_first(spec.width) |> Str.join_with("")
+            else
+                match spec.keep {
+                    Start =>
+                        ss.take_first(spec.width - es.len())
+                            .concat(es)
+                            |> Str.join_with("")
+                    End =>
+                        es.concat(ss.take_last(spec.width - es.len()))
+                            |> Str.join_with("")
+                }
         }
     }
 }

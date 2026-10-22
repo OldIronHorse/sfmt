@@ -172,20 +172,23 @@ Fmt := {}.{
     trunc = |fn, spec| {
         es = Grapheme.slices(spec.ellipsis)
         |v| {
-            s = fn(v)
-            ss = Grapheme.slices(s)
-            if ss.len() > spec.width
-                match spec.keep {
-                    Start =>
-                        ss.take_first(spec.width - es.len())
-                            .concat(es)
-                            |> Str.join_with("")
-                    End =>
-                        es.concat(ss.take_last(spec.width - es.len()))
-                            |> Str.join_with("")
-                }
-            else
-                s
+            if spec.width > es.len() {
+                s = fn(v)
+                ss = Grapheme.slices(s)
+                if ss.len() > spec.width
+                    match spec.keep {
+                        Start =>
+                            ss.take_first(spec.width - es.len())
+                                .concat(es)
+                                |> Str.join_with("")
+                        End =>
+                            es.concat(ss.take_last(spec.width - es.len()))
+                                |> Str.join_with("")
+                    }
+                else
+                    s
+            } else
+                es.take_first(spec.width) |> Str.join_with("")
         }
     }
 }
@@ -280,3 +283,4 @@ expect (Fmt.fixed(2) |> Fmt.separators(Fmt.english) |> Fmt.prefix("£") |> Fmt.s
 expect Fmt.trunc(Fmt.str, { width: 20 })("abcdefg") == "abcdefg"
 expect Fmt.trunc(Fmt.str, { width: 5 })("abcdefg") == "abcd…"
 expect Fmt.trunc(Fmt.str, { width: 5, keep: End })("abcdefg") == "…defg"
+expect Fmt.trunc(Fmt.str, { width: 3, ellipsis: "----" })("abcdef") == "---"

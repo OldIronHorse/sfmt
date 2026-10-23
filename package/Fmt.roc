@@ -216,6 +216,26 @@ Fmt := {}.{
                 Right => End
                 Center => Middle
             } }) |> Fmt.pad({ width: spec.width, align: spec.align })
+
+    OverflowStyle := {
+        width: U64,
+        mark: Str ?? "#",
+    }
+
+    overflow : (a -> Str), OverflowStyle -> (a -> Str)
+    overflow = |fn, spec|
+        |v| {
+            s = fn(v)
+            if Grapheme.slices(s).len() > spec.width
+                spec.mark
+                    |> Grapheme.slices()
+                    .repeat(spec.width)
+                    .join()
+                    .take_first(spec.width)
+                    |> Str.join_with("")
+            else
+                s
+        }
 }
 
 on_magnitude : (Str -> Str), (a -> Str) -> (a -> Str)
@@ -298,12 +318,12 @@ expect {
         { desc: "fryingpan", price: 20.25, quantity: 2 },
         { desc: "discount", price: -50, quantity: 1 },
         { desc: "a really long description", price: 0.5, quantity: 1_000_000 },
-    ].map(|item| "${(Fmt.str |> Fmt.trunc({ width: 11 }) |> Fmt.pad({ width: 11 }))(item.desc)}|${(Fmt.num_int({width: 5})|> Fmt.trunc({ width: 5, keep: End }))(item.quantity) } @ ${Fmt.num({dp: 2, sign: Fmt.accounting, width: 10})(item.price)} = ${(Fmt.gbp |> Fmt.sign(Fmt.accounting) |> Fmt.trunc({ width: 10, keep: End }) |> Fmt.pad({ width: 10, align: Right }))(item.price * item.quantity.to_dec())}")
+    ].map(|item| "${(Fmt.str |> Fmt.trunc({ width: 11 }) |> Fmt.pad({ width: 11 }))(item.desc)}|${(Fmt.num_int({width: 5})|> Fmt.overflow({ width: 5 }))(item.quantity) } @ ${Fmt.num({dp: 2, sign: Fmt.accounting, width: 10})(item.price)} = ${(Fmt.gbp |> Fmt.sign(Fmt.accounting) |> Fmt.overflow({ width: 10 }) |> Fmt.pad({ width: 10, align: Right }))(item.price * item.quantity.to_dec())}")
     expected = [
         "saucepan   |    3 @     15.25  =    £45.75 ",
         "fryingpan  |    2 @     20.25  =    £40.50 ",
         "discount   |    1 @    (50.00) =   (£50.00)",
-        "a really l…|…0000 @      0.50  = …0,000.00 ",
+        "a really l…|##### @      0.50  = ##########",
     ]
     actual == expected
 }

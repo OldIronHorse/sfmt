@@ -41,13 +41,16 @@ Fmt := {}.{
                             .concat(gs)
                             .take_last(spec.width)
                             |> Str.join_with("")
-                    Center =>
-                        fs.repeat(pc.div_ceil_by(2))
-                            .append(gs)
-                            .join()
-                            .concat(fs.repeat(pc.div_floor_by(2)).join())
-                            .take_first(spec.width)
+                    Center => {
+                        n = spec.width - gs.len()
+                        l = n.div_ceil_by(2)
+                        r = n - l
+                        left = fs.repeat(l.div_ceil_by(fs.len())).join().take_last(l)
+                        right = fs.repeat(r.div_ceil_by(fs.len())).join().take_first(r)
+                        left.concat(gs)
+                            .concat(right)
                             |> Str.join_with("")
+                    }
                 }
             }
         }
@@ -59,8 +62,8 @@ Fmt := {}.{
     int : a -> Str where [ a.to_str : a -> Str, a.shl_wrap : a, U8 -> a, a.bitwise_and : a, a -> a ] # a should be an integer type
     int = |n| n.to_str()
 
-    map : (b -> a), (a -> Str) -> (b -> Str)
-    map = |fn, fmt|
+    map : (a -> Str), (b -> a) -> (b -> Str)
+    map = |fmt, fn|
         |v| v |> fn |> fmt
 
     sign : (a -> Str), SignStyle-> (a -> Str)
@@ -209,7 +212,9 @@ expect Fmt.fixed(2)(-12.3456) == "-12.35"
 expect Fmt.fixed(2)(12.Dec) == "12.00"
 expect Fmt.fixed(2)(12) == "12.00"
 expect Fmt.fixed(0)(12.5) == "13"
+expect Fmt.fixed(0)(-12.5) == "-13"
 expect Fmt.fixed(0)(12.4) == "12"
+expect Fmt.fixed(0)(-12.4) == "-12"
 expect Fmt.fixed(2)(-0.001) == "0.00"
 expect (Fmt.fixed(2) |> Fmt.pad({ width: 10, align: Right }))(12.3456) == "     12.35"
 expect (Fmt.fixed(2) |> Fmt.pad({ width: 3, align: Right }))(12.3456)== "12.35"
@@ -223,11 +228,12 @@ expect Fmt.pad(Fmt.int, { width: 10, fill: "#", align: Left })(1234) == "1234###
 expect Fmt.pad(Fmt.int, { width: 11, fill: "|#", align: Left })(1234) == "1234|#|#|#|"
 expect Fmt.pad(Fmt.int, { width: 10, align: Center })(1234) == "   1234   "
 expect Fmt.pad(Fmt.int, { width: 11, align: Center })(1234) == "    1234   "
+expect Fmt.pad(Fmt.int, { width: 5, fill: "|#", align: Center })(1234) == "#1234"
 
 expect {
     Item : { price: Dec }
     i = { price: 12.5 }
-    Fmt.map(|p| p.price, Fmt.fixed(2))(i) == "12.50"
+    (Fmt.fixed(2) |> Fmt.map(|p| p.price))(i) == "12.50"
 }
 
 expect Fmt.sign(Fmt.int, Fmt.neg_only)(12) == "12"

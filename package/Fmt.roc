@@ -167,7 +167,7 @@ Fmt := {}.{
 
     TruncStyle := {
         width: U64,
-        keep: [Start, End] ?? Start,
+        keep: [Start, End, Middle] ?? Start,
         ellipsis: Str ?? "…",
     }
 
@@ -190,9 +190,32 @@ Fmt := {}.{
                     End =>
                         es.concat(ss.take_last(spec.width - es.len()))
                             |> Str.join_with("")
+                    Middle => {
+                        l = (ss.len() - spec.width).div_ceil_by(2)
+                        r = ss.len() - spec.width - l
+                        if r == 0
+                            "${spec.ellipsis}${ss.drop_first(l + es.len()) |> Str.join_with("")}"
+                        else
+                            "${spec.ellipsis}${ss.drop_first(l + es.len()).drop_last(r + es.len()) |> Str.join_with("")}${spec.ellipsis}"
+                    }
                 }
         }
     }
+
+    FitStyle := {
+        width: U64,
+        align: [Left, Right, Center] ?? Left,
+        ellipsis: Str ?? "…",
+    }
+
+    fit : (a -> Str), FitStyle -> (a -> Str)
+    fit = |fn, spec|
+        fn |> Fmt.trunc({ width: spec.width, keep:
+            match spec.align {
+                Left => Start
+                Right => End
+                Center => Middle
+            } }) |> Fmt.pad({ width: spec.width, align: spec.align })
 }
 
 on_magnitude : (Str -> Str), (a -> Str) -> (a -> Str)
@@ -217,7 +240,7 @@ expect Fmt.fixed(0)(12.4) == "12"
 expect Fmt.fixed(0)(-12.4) == "-12"
 expect Fmt.fixed(2)(-0.001) == "0.00"
 expect (Fmt.fixed(2) |> Fmt.pad({ width: 10, align: Right }))(12.3456) == "     12.35"
-expect (Fmt.fixed(2) |> Fmt.pad({ width: 3, align: Right }))(12.3456)== "12.35"
+expect (Fmt.fixed(2) |> Fmt.pad({ width: 3, align: Right }))(12.3456) == "12.35"
 expect Fmt.int(123) == "123"
 expect (Fmt.int |> Fmt.pad({ width: 10, align: Right }))(1234) == "      1234"
 expect Fmt.pad(Fmt.int, { width: 10, align: Right, fill: "#" })(1234) == "######1234"
@@ -273,11 +296,13 @@ expect {
         { desc: "saucepan", price: 15.25, quantity: 3 },
         { desc: "fryingpan", price: 20.25, quantity: 2 },
         { desc: "discount", price: -50, quantity: 1 },
-    ].map(|item| "${(Fmt.str |> Fmt.pad({ width: 11 }))(item.desc)}|${Fmt.num_int({width: 5})(item.quantity)} @ ${Fmt.num({dp: 2, sign: Fmt.accounting, width: 10})(item.price)} = ${(Fmt.gbp |> Fmt.sign(Fmt.accounting) |> Fmt.pad({ width: 10, align: Right }))(item.price * item.quantity.to_dec())}")
+        { desc: "a really long description", price: 0.5, quantity: 1_000_000 },
+    ].map(|item| "${(Fmt.str |> Fmt.trunc({ width: 11 }) |> Fmt.pad({ width: 11 }))(item.desc)}|${(Fmt.num_int({width: 5})|> Fmt.trunc({ width: 5, keep: End }))(item.quantity) } @ ${Fmt.num({dp: 2, sign: Fmt.accounting, width: 10})(item.price)} = ${(Fmt.gbp |> Fmt.sign(Fmt.accounting) |> Fmt.trunc({ width: 10, keep: End }) |> Fmt.pad({ width: 10, align: Right }))(item.price * item.quantity.to_dec())}")
     expected = [
         "saucepan   |    3 @     15.25  =    £45.75 ",
         "fryingpan  |    2 @     20.25  =    £40.50 ",
         "discount   |    1 @    (50.00) =   (£50.00)",
+        "a really l…|…0000 @      0.50  = …0,000.00 ",
     ]
     actual == expected
 }
@@ -288,4 +313,14 @@ expect (Fmt.fixed(2) |> Fmt.separators(Fmt.english) |> Fmt.prefix("£") |> Fmt.s
 expect Fmt.trunc(Fmt.str, { width: 20 })("abcdefg") == "abcdefg"
 expect Fmt.trunc(Fmt.str, { width: 5 })("abcdefg") == "abcd…"
 expect Fmt.trunc(Fmt.str, { width: 5, keep: End })("abcdefg") == "…defg"
+expect Fmt.trunc(Fmt.str, { width: 5, keep: Middle })("abcdefg") == "…cde…"
 expect Fmt.trunc(Fmt.str, { width: 3, ellipsis: "----" })("abcdef") == "---"
+
+expect (Fmt.str |> Fmt.fit({ width: 11 }))("saucepan") == "saucepan   "
+expect (Fmt.str |> Fmt.fit({ width: 11, align: Right }))("saucepan") == "   saucepan"
+expect (Fmt.str |> Fmt.fit({ width: 11, align: Center }))("saucepan") == "  saucepan "
+expect (Fmt.str |> Fmt.fit({ width: 4 }))("saucepan") == "sau…"
+expect (Fmt.str |> Fmt.fit({ width: 4, align: Right }))("saucepan") == "…pan"
+expect (Fmt.str |> Fmt.fit({ width: 4, align: Center }))("saucepan") == "…ce…"
+expect (Fmt.str |> Fmt.fit({ width: 7, align: Center }))("saucepan") == "…ucepan"
+expect (Fmt.str |> Fmt.fit({ width: 8, align: Center }))("saucepan") == "saucepan"

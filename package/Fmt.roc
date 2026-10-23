@@ -20,7 +20,7 @@ Fmt := {}.{
 
     pad : (a -> Str), PadStyle -> (a -> Str)
     pad = |fn, spec| {
-        fs = Grapheme.slices(spec.fill)
+        fs = Grapheme.slices(if spec.fill.is_empty() " " else spec.fill)
         |v| {
             s = fn(v)
             gs = Grapheme.slices(s)
@@ -183,14 +183,10 @@ Fmt := {}.{
                 es.take_first(spec.width) |> Str.join_with("")
             else
                 match spec.keep {
-                    Start =>
-                        ss.take_first(spec.width - es.len())
-                            .concat(es)
-                            |> Str.join_with("")
                     End =>
                         es.concat(ss.take_last(spec.width - es.len()))
                             |> Str.join_with("")
-                    Middle => {
+                    Middle if spec.width >= 2 * es.len() => {
                         l = (ss.len() - spec.width).div_ceil_by(2)
                         r = ss.len() - spec.width - l
                         if r == 0
@@ -198,6 +194,10 @@ Fmt := {}.{
                         else
                             "${spec.ellipsis}${ss.drop_first(l + es.len()).drop_last(r + es.len()) |> Str.join_with("")}${spec.ellipsis}"
                     }
+                    _ => # Start or Middle with overflowing ellipsis
+                        ss.take_first(spec.width - es.len())
+                            .concat(es)
+                            |> Str.join_with("")
                 }
         }
     }
@@ -210,7 +210,7 @@ Fmt := {}.{
 
     fit : (a -> Str), FitStyle -> (a -> Str)
     fit = |fn, spec|
-        fn |> Fmt.trunc({ width: spec.width, keep:
+        fn |> Fmt.trunc({ width: spec.width, ellipsis: spec.ellipsis, keep:
             match spec.align {
                 Left => Start
                 Right => End
@@ -244,6 +244,7 @@ expect (Fmt.fixed(2) |> Fmt.pad({ width: 3, align: Right }))(12.3456) == "12.35"
 expect Fmt.int(123) == "123"
 expect (Fmt.int |> Fmt.pad({ width: 10, align: Right }))(1234) == "      1234"
 expect Fmt.pad(Fmt.int, { width: 10, align: Right, fill: "#" })(1234) == "######1234"
+expect Fmt.pad(Fmt.int, { width: 10, align: Right, fill: "" })(1234) == "      1234"
 expect Fmt.pad(Fmt.int, { width: 11, align: Right, fill: "|#" })(1234) == "#|#|#|#1234"
 expect Fmt.pad(Fmt.int, { width: 7, align: Right, fill: "0" })(-1234) == "00-1234" # padding is external to the number representation
 expect Fmt.pad(Fmt.int, { width: 10, align: Left })(1234) == "1234      "
@@ -314,6 +315,7 @@ expect Fmt.trunc(Fmt.str, { width: 20 })("abcdefg") == "abcdefg"
 expect Fmt.trunc(Fmt.str, { width: 5 })("abcdefg") == "abcd…"
 expect Fmt.trunc(Fmt.str, { width: 5, keep: End })("abcdefg") == "…defg"
 expect Fmt.trunc(Fmt.str, { width: 5, keep: Middle })("abcdefg") == "…cde…"
+expect Fmt.trunc(Fmt.str, { width: 1, keep: Middle })("abcdefg") == "…"
 expect Fmt.trunc(Fmt.str, { width: 3, ellipsis: "----" })("abcdef") == "---"
 
 expect (Fmt.str |> Fmt.fit({ width: 11 }))("saucepan") == "saucepan   "

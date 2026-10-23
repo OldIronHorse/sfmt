@@ -167,7 +167,7 @@ Fmt := {}.{
 
     TruncStyle := {
         width: U64,
-        keep: [Start, End, Middle] ?? Start,
+        keep: [Start, End, Middle, Both] ?? Start,
         ellipsis: Str ?? "…",
     }
 
@@ -183,6 +183,14 @@ Fmt := {}.{
                 es.take_first(spec.width) |> Str.join_with("")
             else
                 match spec.keep {
+                    Both =>{
+                        l = (spec.width - es.len()).div_ceil_by(2)
+                        r = spec.width - es.len() - l
+                        ss.take_first(l)
+                            .concat(es)
+                            .concat(ss.take_last(r))
+                            |> Str.join_with("")
+                    }
                     End =>
                         es.concat(ss.take_last(spec.width - es.len()))
                             |> Str.join_with("")
@@ -335,6 +343,8 @@ expect Fmt.trunc(Fmt.str, { width: 20 })("abcdefg") == "abcdefg"
 expect Fmt.trunc(Fmt.str, { width: 5 })("abcdefg") == "abcd…"
 expect Fmt.trunc(Fmt.str, { width: 5, keep: End })("abcdefg") == "…defg"
 expect Fmt.trunc(Fmt.str, { width: 5, keep: Middle })("abcdefg") == "…cde…"
+expect Fmt.trunc(Fmt.str, { width: 5, keep: Both})("abcdefg") == "ab…fg"
+expect Fmt.trunc(Fmt.str, { width: 6, keep: Both})("abcdefg") == "abc…fg"
 expect Fmt.trunc(Fmt.str, { width: 1, keep: Middle })("abcdefg") == "…"
 expect Fmt.trunc(Fmt.str, { width: 3, ellipsis: "----" })("abcdef") == "---"
 

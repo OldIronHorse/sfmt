@@ -326,3 +326,7 @@ expect (Fmt.str |> Fmt.fit({ width: 4, align: Right }))("saucepan") == "…pan"
 expect (Fmt.str |> Fmt.fit({ width: 4, align: Center }))("saucepan") == "…ce…"
 expect (Fmt.str |> Fmt.fit({ width: 7, align: Center }))("saucepan") == "…ucepan"
 expect (Fmt.str |> Fmt.fit({ width: 8, align: Center }))("saucepan") == "saucepan"
+
+expect (Fmt.int |> Fmt.overflow({ width: 10 }))(1_000_000) == "1000000"
+expect (Fmt.int |> Fmt.overflow({ width: 5 }))(1_000_000) == "#####"
+expect (Fmt.int |> Fmt.overflow({ width: 5, mark: "<>" }))(1_000_000) == "<><><"

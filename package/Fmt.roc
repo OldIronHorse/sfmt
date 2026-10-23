@@ -234,7 +234,7 @@ Fmt := {}.{
     overflow = |fn, spec|
         |v| {
             s = fn(v)
-            if Grapheme.slices(s).len() > spec.width
+            if width(s) > spec.width
                 spec.mark
                     |> Grapheme.slices()
                     .repeat(spec.width)
@@ -244,6 +244,9 @@ Fmt := {}.{
             else
                 s
         }
+
+    width : Str -> U64
+    width = |s| Grapheme.slices(s).len()
 }
 
 on_magnitude : (Str -> Str), (a -> Str) -> (a -> Str)
